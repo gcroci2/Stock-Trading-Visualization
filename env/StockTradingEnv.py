@@ -1,8 +1,6 @@
 import random
-import json
-import gym
-from gym import spaces
-import pandas as pd
+import gymnasium as gym
+from gymnasium import spaces
 import numpy as np
 
 from render.StockTradingGraph import StockTradingGraph
@@ -24,14 +22,17 @@ def factor_pairs(val):
 
 class StockTradingEnv(gym.Env):
     """A stock trading environment for OpenAI gym"""
-    metadata = {'render.modes': ['live', 'file', 'none']}
-    visualization = None
+    metadata = {'render.modes': ['live', 'file', 'human']}
 
-    def __init__(self, df):
+    def __init__(self, df, render_mode='live'):
         super(StockTradingEnv, self).__init__()
 
         self.df = self._adjust_prices(df)
+        if render_mode not in self.metadata['render.modes']:
+            raise ValueError(f'Invalid render_mode: {render_mode}, mode must be one of {self.metadata["render.modes"]}')
+        self.render_mode = render_mode
         self.reward_range = (0, MAX_ACCOUNT_BALANCE)
+        self.visualization = None
 
         # Actions of the format Buy x%, Sell x%, Hold, etc.
         self.action_space = spaces.Box(
@@ -133,14 +134,16 @@ class StockTradingEnv(gym.Env):
         delay_modifier = (self.current_step / MAX_STEPS)
 
         reward = self.balance * delay_modifier + self.current_step
-        done = self.net_worth <= 0 or self.current_step >= len(
+        terminated = self.net_worth <= 0 or self.current_step >= len(
             self.df.loc[:, 'Open'].values)
+        truncated = self.current_step >= MAX_STEPS
 
         obs = self._next_observation()
 
-        return obs, reward, done, {}
+        return obs, reward, terminated, truncated, {}
 
-    def reset(self):
+    def reset(self, seed=None):
+        super().reset(seed=seed)
         # Reset the state of the environment to an initial state
         self.balance = INITIAL_ACCOUNT_BALANCE
         self.net_worth = INITIAL_ACCOUNT_BALANCE
@@ -152,7 +155,7 @@ class StockTradingEnv(gym.Env):
         self.current_step = 0
         self.trades = []
 
-        return self._next_observation()
+        return self._next_observation(), {}
 
     def _render_to_file(self, filename='render.txt'):
         profit = self.net_worth - INITIAL_ACCOUNT_BALANCE
@@ -171,13 +174,13 @@ class StockTradingEnv(gym.Env):
 
         file.close()
 
-    def render(self, mode='live', **kwargs):
+    def render(self, **kwargs):
         # Render the environment to the screen
-        if mode == 'file':
+        if self.render_mode == 'file':
             self._render_to_file(kwargs.get('filename', 'render.txt'))
 
-        elif mode == 'live':
-            if self.visualization == None:
+        elif self.render_mode == 'live':
+            if self.visualization is None:
                 self.visualization = StockTradingGraph(
                     self.df, kwargs.get('title', None))
 
@@ -185,7 +188,25 @@ class StockTradingEnv(gym.Env):
                 self.visualization.render(
                     self.current_step, self.net_worth, self.trades, window_size=LOOKBACK_WINDOW_SIZE)
 
+        elif self.render_mode == 'human':
+            # Render the environment to the screen
+            profit = self.net_worth - INITIAL_ACCOUNT_BALANCE
+
+            print(f'\nStep: {self.current_step}')
+            print(f'Balance: {self.balance}')
+            print(
+                f'Shares held: {self.shares_held} (Total sold: {self.total_shares_sold})')
+            print(
+                f'Avg cost for held shares: {self.cost_basis} (Total sales value: {self.total_sales_value})')
+            print(
+                f'Net worth: {self.net_worth} (Max net worth: {self.max_net_worth})')
+            print(f'Profit: {profit}')
+        
+        else:
+            raise NotImplementedError()
+
+    # Close the visualization, if any
     def close(self):
-        if self.visualization != None:
+        if self.visualization is not None:
             self.visualization.close()
             self.visualization = None
