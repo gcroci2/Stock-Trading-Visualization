@@ -19,3 +19,6 @@
 #macos
 *.DS_store
 *.DS_Store
+
+*.zip
+*.txt
