@@ -1,1 +1,21 @@
-.vscode
+# python binary
+*.pyc
+
+# Editor swaps
+*.swp
+
+#Byte-compiled / optimized
+*__pycache__*
+
+# datafile
+*.db
+*.izone
+*.lzone
+*.ref_pairs
+
+#pycharm
+.idea
+
+#macos
+*.DS_store
+*.DS_Store
