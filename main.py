@@ -1,3 +1,4 @@
+# From this blog post: https://towardsdatascience.com/creating-a-custom-openai-gym-environment-for-stock-trading-be532be3910e.
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3 import PPO
 
